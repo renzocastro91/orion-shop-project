@@ -47,7 +47,10 @@
         <button class="nav-btn admin-only hidden" data-section="attendedOrders"><span>Pedidos Atendidos</span></button>
       </nav>
       <div class="session">
-        <span id="userBadge"></span>
+        <div class="user-menu">
+          <span id="userBadge"></span>
+          <button id="profileLinkBtn" class="profile-link" type="button">Mi Perfil</button>
+        </div>
         <button id="cartNavBtn" class="cart-button" data-section="cart" type="button" aria-label="Abrir carrito">
           <svg id="cartIconEmpty" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6.2 6h15l-1.6 8.1a2 2 0 0 1-2 1.6H9a2 2 0 0 1-2-1.6L5.2 3.8H2.5" />
@@ -150,6 +153,40 @@
         </div>
         <div id="cartList" class="panel"></div>
         <button id="orderBtn" class="primary">Hacer pedido</button>
+      </section>
+
+      <section id="profile" class="page">
+        <div class="section-heading">
+          <h1>Mi Perfil</h1>
+          <p>Actualiza tus datos de cuenta. El rol no se puede modificar.</p>
+        </div>
+        <form id="profileForm" class="panel profile-panel">
+          <label>
+            Nombre
+            <input name="firstName" placeholder="Nombre" required />
+          </label>
+          <label>
+            Apellido
+            <input name="lastName" placeholder="Apellido" required />
+          </label>
+          <label>
+            Email
+            <input name="email" type="email" placeholder="Email" required />
+          </label>
+          <label>
+            Telefono
+            <input name="phone" placeholder="Telefono" required />
+          </label>
+          <label>
+            Nueva contrasena
+            <input name="password" type="password" placeholder="Dejar vacio para mantenerla" minlength="6" />
+          </label>
+          <label>
+            Rol
+            <input name="role" disabled />
+          </label>
+          <button>Guardar cambios</button>
+        </form>
       </section>
 
       <section id="myOrders" class="page buyer-only hidden">

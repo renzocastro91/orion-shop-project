@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../../users/application/users.service';
-import { LoginDto, RegisterDto } from '../dto/auth.dto';
+import { LoginDto, RegisterDto, UpdateProfileDto } from '../dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -28,6 +28,11 @@ export class AuthService {
 
   async refresh(userId: string) {
     const user = await this.usersService.findById(userId);
+    return this.session(user);
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const user = await this.usersService.updateProfile(userId, dto);
     return this.session(user);
   }
 

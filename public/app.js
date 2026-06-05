@@ -83,9 +83,22 @@ function refreshSessionUI() {
   $$('.buyer-only').forEach((el) => el.classList.toggle('hidden', !isBuyer));
 }
 
+function fillProfileForm() {
+  const form = $('#profileForm');
+  if (!form || !state.user) return;
+
+  form.elements.firstName.value = state.user.firstName || '';
+  form.elements.lastName.value = state.user.lastName || '';
+  form.elements.email.value = state.user.email || '';
+  form.elements.phone.value = state.user.phone || '';
+  form.elements.password.value = '';
+  form.elements.role.value = state.user.role || '';
+}
+
 function showSection(id) {
   $$('.page').forEach((page) => page.classList.toggle('active', page.id === id));
   $$('.nav-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.section === id));
+  if (id === 'profile') fillProfileForm();
   if (id === 'activeOrders') loadOrders(true);
   if (id === 'attendedOrders') loadOrders(false);
   if (id === 'myOrders') loadMyOrders();
@@ -347,6 +360,7 @@ function bindForms() {
   });
 
   $('#cartNavBtn').addEventListener('click', () => showSection('cart'));
+  $('#profileLinkBtn').addEventListener('click', () => showSection('profile'));
 
   $$('.admin-tool-trigger').forEach((trigger) => {
     trigger.addEventListener('click', () => {
@@ -428,6 +442,25 @@ function bindForms() {
         if (settings.logoUrl) logo.src = settings.logoUrl;
       });
       toast('Marca actualizada');
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+
+  $('#profileForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      const body = formDataToJson(event.target);
+      if (!body.password) delete body.password;
+
+      const session = await api('/api/auth/profile', { method: 'PATCH', body: JSON.stringify(body) });
+      state.token = session.accessToken;
+      state.user = session.user;
+      sessionStorage.setItem('token', state.token);
+      sessionStorage.setItem('user', JSON.stringify(state.user));
+      refreshSessionUI();
+      fillProfileForm();
+      toast('Perfil actualizado');
     } catch (error) {
       toast(error.message);
     }

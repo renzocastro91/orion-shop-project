@@ -14,6 +14,14 @@ export interface CreateUserInput {
   role?: UserRole;
 }
 
+export interface UpdateProfileInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  password?: string;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -44,6 +52,27 @@ export class UsersService {
       passwordHash: input.password ? await bcrypt.hash(input.password, 10) : null,
       role: input.role ?? UserRole.Buyer,
     });
+
+    return this.users.save(user);
+  }
+
+  async updateProfile(id: string, input: UpdateProfileInput) {
+    const user = await this.findById(id);
+    const email = input.email.toLowerCase();
+
+    if (email !== user.email) {
+      const exists = await this.findByEmail(email);
+      if (exists) throw new ConflictException('El email ya esta registrado');
+    }
+
+    user.firstName = input.firstName;
+    user.lastName = input.lastName;
+    user.email = email;
+    user.phone = input.phone;
+
+    if (input.password) {
+      user.passwordHash = await bcrypt.hash(input.password, 10);
+    }
 
     return this.users.save(user);
   }
