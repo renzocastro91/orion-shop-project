@@ -65,11 +65,13 @@ DATABASE_URL=postgres://user:password@host:5432/database
 DB_SSL=true
 TYPEORM_MIGRATIONS_RUN=true
 BLOB_READ_WRITE_TOKEN=vercel_blob_rw_xxx
+# o, si el store esta actualizado a OIDC:
+BLOB_STORE_ID=store_xxx
 ADMIN_EMAIL=admin@empresa.com
 ADMIN_PASSWORD=cambiar-antes-de-publicar
 ```
 
-La app usa Postgres, tiene `synchronize` desactivado y ejecuta migraciones TypeORM. Cuando `BLOB_READ_WRITE_TOKEN` existe, las imagenes se guardan en Vercel Blob. Sin ese token, las imagenes van a `uploads/`, solo recomendado para desarrollo local.
+La app usa Postgres, tiene `synchronize` desactivado y ejecuta migraciones TypeORM. Cuando existe un token de Vercel Blob (`BLOB_READ_WRITE_TOKEN` o una variable `BLOB_READ_WRITE_TOKEN_*` generada por Vercel), las imagenes se guardan en Vercel Blob. Si el store esta actualizado a OIDC, Vercel inyecta el token automaticamente y el proyecto necesita `BLOB_STORE_ID`. Sin credenciales de Blob, las imagenes van a `uploads/`, solo recomendado para desarrollo local.
 
 Para crear el superusuario en produccion:
 
@@ -86,7 +88,7 @@ npm run seed
 El proyecto incluye `vercel.json` y `src/main.ts` exporta un handler serverless para Vercel. Configurar en Vercel:
 
 - `DATABASE_URL` con Postgres.
-- `BLOB_READ_WRITE_TOKEN` con Vercel Blob.
+- `BLOB_READ_WRITE_TOKEN` con Vercel Blob, o `BLOB_STORE_ID` si el store usa OIDC.
 - `JWT_SECRET`, `ADMIN_EMAIL` y `ADMIN_PASSWORD`.
 
 No usar `uploads/` locales en Vercel porque el filesystem serverless no es persistente.

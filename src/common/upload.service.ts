@@ -1,5 +1,5 @@
 import { put } from '@vercel/blob';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { mkdirSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { memoryStorage } from 'multer';
@@ -19,20 +19,47 @@ export const imageUploadOptions = {
   },
 };
 
+function firstEnvValue(predicate: (name: string, value: string) => boolean): string | undefined {
+  for (const [name, value] of Object.entries(process.env)) {
+    const cleanValue = value?.trim();
+    if (cleanValue && predicate(name, cleanValue)) {
+      return cleanValue;
+    }
+  }
+  return undefined;
+}
+
 export async function saveImage(file: Express.Multer.File | undefined, folder: string): Promise<string | null> {
   if (!file) return null;
 
   const extension = extname(file.originalname).toLowerCase() || '.jpg';
   const filename = `${folder}/${randomUUID()}${extension}`;
-  const blobStoreId = process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN_STORE_ID;
+  const blobToken =
+    process.env.BLOB_READ_WRITE_TOKEN?.trim() ??
+    firstEnvValue((name, value) => name.startsWith('BLOB_READ_WRITE_TOKEN') && value.startsWith('vercel_blob_rw_'));
+  const blobStoreId =
+    process.env.BLOB_STORE_ID?.trim() ??
+    firstEnvValue((name, value) => name.endsWith('STORE_ID') && value.startsWith('store_'));
 
-  if (process.env.BLOB_READ_WRITE_TOKEN || blobStoreId) {
-    const blob = await put(filename, file.buffer, {
-      access: 'public',
-      contentType: file.mimetype,
-      storeId: blobStoreId,
-    });
-    return blob.url;
+  if (blobToken || blobStoreId) {
+    try {
+      const blob = await put(filename, file.buffer, {
+        access: 'public',
+        contentType: file.mimetype,
+        ...(blobToken ? { token: blobToken } : {}),
+        ...(blobStoreId && !blobToken ? { storeId: blobStoreId } : {}),
+      });
+      return blob.url;
+    } catch (error) {
+      console.error('Vercel Blob upload failed', {
+        folder,
+        filename,
+        hasBlobToken: Boolean(blobToken),
+        hasBlobStoreId: Boolean(blobStoreId),
+        error: error instanceof Error ? error.message : error,
+      });
+      throw new ServiceUnavailableException('No se pudo subir la imagen a Vercel Blob');
+    }
   }
 
   const target = join(process.cwd(), 'uploads', folder);
