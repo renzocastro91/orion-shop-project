@@ -520,25 +520,34 @@ body.is-admin .admin-actions {
 
   .topbar {
     position: sticky;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "brand brand brand"
+      "user cart logout";
     align-items: center;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 10px;
+    column-gap: 8px;
+    row-gap: 8px;
     min-height: auto;
-    padding: 10px 12px 12px;
+    padding: 10px 10px 11px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.22);
   }
 
   .brand {
-    flex: 1 1 calc(100% - 138px);
+    grid-area: brand;
+    flex: initial;
     min-width: 0;
-    font-size: 18px;
+    gap: 8px;
+    justify-content: center;
+    font-size: clamp(16px, 4.2vw, 20px);
+    line-height: 1.05;
   }
 
   .brand-logo {
-    width: 36px;
-    height: 36px;
+    width: clamp(34px, 9vw, 40px);
+    height: clamp(34px, 9vw, 40px);
+    flex: 0 0 auto;
   }
 
   #brandName {
@@ -634,24 +643,29 @@ body.is-admin .admin-actions {
   }
 
   .session {
-    flex: 0 0 auto;
-    justify-content: flex-end;
-    margin-left: auto;
+    display: contents;
   }
 
   #userBadge {
-    max-width: 112px;
+    grid-area: user;
+    min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12px;
+    font-size: clamp(11px, 3.2vw, 12px);
+    line-height: 1.2;
+    padding-left: 2px;
     color: #dbe4ef;
   }
 
   .cart-button {
-    flex: 0 0 auto;
-    min-width: 58px;
-    padding: 7px 9px;
+    grid-area: cart;
+    align-self: stretch;
+    min-width: 52px;
+    min-height: 42px;
+    justify-content: center;
+    padding: 7px 8px;
     border-color: transparent;
     background: rgba(243, 168, 71, 0.12);
   }
@@ -672,6 +686,9 @@ body.is-admin .admin-actions {
   }
 
   #logoutBtn {
+    grid-area: logout;
+    align-self: stretch;
+    min-height: 42px;
     padding: 8px 10px;
     font-size: 12px;
   }
@@ -720,24 +737,16 @@ body.is-admin .admin-actions {
 
 @media (max-width: 440px) {
   .topbar {
-    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    column-gap: 7px;
   }
 
   .brand {
-    flex-basis: 100%;
     justify-content: center;
   }
 
-  .session {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    width: 100%;
-    gap: 8px;
-  }
-
   #userBadge {
-    max-width: none;
-    align-self: center;
+    max-width: 100%;
   }
 
   #logoutBtn {
