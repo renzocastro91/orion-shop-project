@@ -24,11 +24,13 @@ export async function saveImage(file: Express.Multer.File | undefined, folder: s
 
   const extension = extname(file.originalname).toLowerCase() || '.jpg';
   const filename = `${folder}/${randomUUID()}${extension}`;
+  const blobStoreId = process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN_STORE_ID;
 
-  if (process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN_STORE_ID) {
+  if (process.env.BLOB_READ_WRITE_TOKEN || blobStoreId) {
     const blob = await put(filename, file.buffer, {
       access: 'public',
       contentType: file.mimetype,
+      storeId: blobStoreId,
     });
     return blob.url;
   }
