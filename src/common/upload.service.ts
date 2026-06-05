@@ -46,19 +46,20 @@ export async function saveImage(file: Express.Multer.File | undefined, folder: s
       const blob = await put(filename, file.buffer, {
         access: 'public',
         contentType: file.mimetype,
-        ...(blobToken ? { token: blobToken } : {}),
-        ...(blobStoreId && !blobToken ? { storeId: blobStoreId } : {}),
+        ...(blobStoreId ? { storeId: blobStoreId } : {}),
+        ...(blobToken && !blobStoreId ? { token: blobToken } : {}),
       });
       return blob.url;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Vercel Blob upload failed', {
         folder,
         filename,
         hasBlobToken: Boolean(blobToken),
         hasBlobStoreId: Boolean(blobStoreId),
-        error: error instanceof Error ? error.message : error,
+        error: errorMessage,
       });
-      throw new ServiceUnavailableException('No se pudo subir la imagen a Vercel Blob');
+      throw new ServiceUnavailableException(`No se pudo subir la imagen a Vercel Blob: ${errorMessage}`);
     }
   }
 
