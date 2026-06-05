@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orion Shop</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <section id="loginGate" class="login-gate">
+      <form id="loginForm" class="login-card">
+        <div class="login-brand">
+          <img id="loginLogo" class="brand-logo hidden" alt="Logo empresa" />
+          <h1 id="loginCompanyName">Orion Shop</h1>
+        </div>
+        <input name="email" type="email" placeholder="Email" required />
+        <input name="password" type="password" placeholder="Password" required />
+        <button>Entrar</button>
+        <button id="openRegisterBtn" class="secondary" type="button">Registrate</button>
+      </form>
+
+      <div id="registerPanel" class="login-card register-panel hidden">
+        <form id="registerForm">
+          <h2>Crear cuenta</h2>
+          <input name="firstName" placeholder="Nombre" required />
+          <input name="lastName" placeholder="Apellido" required />
+          <input name="email" type="email" placeholder="Email" required />
+          <input name="phone" placeholder="Telefono" required />
+          <input name="password" type="password" placeholder="Password" minlength="6" required />
+          <button>Registrarme</button>
+        </form>
+        <button id="closeRegisterBtn" class="secondary" type="button">Volver al login</button>
+      </div>
+    </section>
+
+    <div id="appShell" class="hidden">
+    <header class="topbar">
+      <div class="brand">
+        <img id="brandLogo" class="brand-logo hidden" alt="Logo empresa" />
+        <span id="brandName">Orion Shop</span>
+      </div>
+      <nav>
+        <button class="nav-btn active" data-section="home"><span>Inicio</span></button>
+        <button class="nav-btn" data-section="products"><span>Productos</span></button>
+        <button class="nav-btn buyer-only hidden" data-section="myOrders"><span>Mis Pedidos</span></button>
+        <button class="nav-btn admin-only hidden" data-section="activeOrders"><span>Pedidos Activos</span></button>
+        <button class="nav-btn admin-only hidden" data-section="attendedOrders"><span>Pedidos Atendidos</span></button>
+      </nav>
+      <div class="session">
+        <span id="userBadge"></span>
+        <button id="cartNavBtn" class="cart-button" data-section="cart" type="button" aria-label="Abrir carrito">
+          <svg id="cartIconEmpty" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6.2 6h15l-1.6 8.1a2 2 0 0 1-2 1.6H9a2 2 0 0 1-2-1.6L5.2 3.8H2.5" />
+            <circle cx="9.5" cy="20" r="1.4" />
+            <circle cx="18" cy="20" r="1.4" />
+          </svg>
+          <svg id="cartIconFull" class="hidden" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6.2 6h15l-1.6 8.1a2 2 0 0 1-2 1.6H9a2 2 0 0 1-2-1.6L5.2 3.8H2.5" />
+            <path d="M8 8h10.9l-.9 5H9z" />
+            <circle cx="9.5" cy="20" r="1.4" />
+            <circle cx="18" cy="20" r="1.4" />
+          </svg>
+          <span>Carrito</span>
+          <strong id="cartCount">0</strong>
+        </button>
+        <button id="logoutBtn" class="hidden">Salir</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="home" class="page active">
+        <div class="section-heading">
+          <h1>Inicio</h1>
+          <p>Informacion de la empresa y novedades.</p>
+        </div>
+        <div class="admin-tools admin-only hidden">
+          <section class="admin-tool-card">
+            <button class="admin-tool-trigger" type="button" aria-expanded="false" data-admin-tool="backgroundTool">
+              <span>
+                <strong>Fondo de pantalla</strong>
+                <small>Cambiar imagen principal</small>
+              </span>
+              <span class="chevron">⌄</span>
+            </button>
+            <form id="backgroundForm" class="admin-tool-body" aria-hidden="true">
+              <input name="image" type="file" accept="image/*" required />
+              <button>Cambiar fondo</button>
+            </form>
+          </section>
+
+          <section class="admin-tool-card">
+            <button class="admin-tool-trigger" type="button" aria-expanded="false" data-admin-tool="brandTool">
+              <span>
+                <strong>Marca de la empresa</strong>
+                <small>Nombre y logo</small>
+              </span>
+              <span class="chevron">⌄</span>
+            </button>
+            <form id="brandForm" class="admin-tool-body" aria-hidden="true">
+              <input name="companyName" placeholder="Nombre de la empresa" required />
+              <input name="logo" type="file" accept="image/*" />
+              <button>Guardar marca</button>
+            </form>
+          </section>
+
+          <section class="admin-tool-card">
+            <button class="admin-tool-trigger" type="button" aria-expanded="false" data-admin-tool="contentTool">
+              <span>
+                <strong>Globo informativo</strong>
+                <small>Texto e imagen de inicio</small>
+              </span>
+              <span class="chevron">⌄</span>
+            </button>
+            <form id="contentForm" class="admin-tool-body" aria-hidden="true">
+              <input name="title" placeholder="Titulo" required />
+              <textarea name="body" placeholder="Texto" rows="4" required></textarea>
+              <input name="image" type="file" accept="image/*" />
+              <button>Publicar</button>
+            </form>
+          </section>
+        </div>
+        <div id="contentList" class="grid"></div>
+      </section>
+
+      <section id="products" class="page">
+        <div class="section-heading">
+          <h1>Productos</h1>
+          <p>Catalogo disponible para comprar.</p>
+        </div>
+        <form id="productForm" class="panel admin-only hidden">
+          <h3 id="productFormTitle">Cargar producto</h3>
+          <input name="id" type="hidden" />
+          <input name="name" placeholder="Nombre del producto" required />
+          <textarea name="description" placeholder="Descripcion" rows="3" required></textarea>
+          <input name="price" type="number" step="0.01" min="0" placeholder="Precio" required />
+          <input name="discountPercent" type="number" min="0" max="100" value="0" placeholder="Descuento %" />
+          <input name="image" type="file" accept="image/*" />
+          <div class="form-actions">
+            <button id="productSubmitBtn">Guardar producto</button>
+            <button id="productCancelBtn" class="secondary hidden" type="button">Cancelar edicion</button>
+          </div>
+        </form>
+        <div id="productList" class="grid products-grid"></div>
+      </section>
+
+      <section id="cart" class="page">
+        <div class="section-heading">
+          <h1>Carrito</h1>
+          <p>Revisa cantidades antes de hacer el pedido.</p>
+        </div>
+        <div id="cartList" class="panel"></div>
+        <button id="orderBtn" class="primary">Hacer pedido</button>
+      </section>
+
+      <section id="myOrders" class="page buyer-only hidden">
+        <div class="section-heading">
+          <h1>Mis Pedidos</h1>
+          <p>Historial de pedidos realizados con esta cuenta.</p>
+        </div>
+        <div id="myOrdersList" class="grid"></div>
+      </section>
+
+      <section id="activeOrders" class="page admin-only hidden">
+        <div class="section-heading">
+          <h1>Pedidos Activos</h1>
+          <p>Pedidos pendientes de atencion.</p>
+        </div>
+        <div id="activeOrdersList" class="grid"></div>
+      </section>
+
+      <section id="attendedOrders" class="page admin-only hidden">
+        <div class="section-heading">
+          <h1>Pedidos Atendidos</h1>
+          <p>Historial de pedidos finalizados.</p>
+        </div>
+        <div id="attendedOrdersList" class="grid"></div>
+      </section>
+    </main>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>
