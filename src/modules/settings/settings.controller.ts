@@ -6,7 +6,7 @@ import { RolesGuard } from '../../common/auth/roles.guard';
 import { UserRole } from '../../common/roles';
 import { imageUploadOptions, saveImage } from '../../common/upload.service';
 import { SettingsService } from './application/settings.service';
-import { UpdateBackgroundDto, UpdateBrandDto } from './dto/settings.dto';
+import { UpdateBackgroundDto, UpdateBrandDto, UpdatePointsRateDto } from './dto/settings.dto';
 
 @Controller('api/settings')
 export class SettingsController {
@@ -39,5 +39,19 @@ export class SettingsController {
   async updateBrand(@Body() dto: UpdateBrandDto, @UploadedFile() file?: Express.Multer.File) {
     const logoUrl = file ? await saveImage(file, 'logos') : undefined;
     return this.settingsService.setBrand(dto.companyName, logoUrl);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SuperUser)
+  @Get('points-rate')
+  getPointsRate() {
+    return this.settingsService.getPointsRate();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SuperUser)
+  @Patch('points-rate')
+  updatePointsRate(@Body() dto: UpdatePointsRateDto) {
+    return this.settingsService.setPointsRate(dto.pesosPerPoint, dto.cashbackPesos);
   }
 }

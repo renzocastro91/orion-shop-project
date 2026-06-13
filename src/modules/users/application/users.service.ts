@@ -39,6 +39,13 @@ export class UsersService {
     return user;
   }
 
+  listBuyers() {
+    return this.users.find({
+      where: { role: UserRole.Buyer },
+      order: { firstName: 'ASC', lastName: 'ASC' },
+    });
+  }
+
   async create(input: CreateUserInput) {
     const email = input.email.toLowerCase();
     const exists = await this.findByEmail(email);
@@ -74,6 +81,12 @@ export class UsersService {
       user.passwordHash = await bcrypt.hash(input.password, 10);
     }
 
+    return this.users.save(user);
+  }
+
+  async setLoyaltyResetAt(id: string, resetAt: Date) {
+    const user = await this.findById(id);
+    user.loyaltyResetAt = resetAt;
     return this.users.save(user);
   }
 }

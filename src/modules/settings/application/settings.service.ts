@@ -20,6 +20,14 @@ export class SettingsService {
     };
   }
 
+  async getPointsRate() {
+    const rows = await this.settings.findBy([{ key: 'pointsRatePesos' }, { key: 'cashbackPesos' }]);
+    const byKey = new Map(rows.map((row) => [row.key, row.value]));
+    const pesosPerPoint = Math.max(1, Number(byKey.get('pointsRatePesos') || 1000));
+    const cashbackPesos = Math.max(0, Number(byKey.get('cashbackPesos') || 1));
+    return { pesosPerPoint, cashbackPesos };
+  }
+
   async setBackground(backgroundUrl: string) {
     await this.settings.save({ key: 'backgroundUrl', value: backgroundUrl });
     return this.getPublicSettings();
@@ -31,5 +39,11 @@ export class SettingsService {
       await this.settings.save({ key: 'logoUrl', value: logoUrl });
     }
     return this.getPublicSettings();
+  }
+
+  async setPointsRate(pesosPerPoint: number, cashbackPesos: number) {
+    await this.settings.save({ key: 'pointsRatePesos', value: String(pesosPerPoint) });
+    await this.settings.save({ key: 'cashbackPesos', value: String(cashbackPesos) });
+    return this.getPointsRate();
   }
 }

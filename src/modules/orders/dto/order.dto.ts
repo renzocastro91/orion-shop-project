@@ -1,4 +1,4 @@
-import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsString, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateOrderItemDto {
@@ -17,4 +17,13 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  useCashback?: boolean;
+}
+
+export class ReactivateOrderDto {
+  @IsBoolean()
+  restoreStock: boolean;
 }

@@ -24,6 +24,9 @@ export class UserEntity {
   @Column({ type: 'text', default: UserRole.Buyer })
   role: UserRole;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  loyaltyResetAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

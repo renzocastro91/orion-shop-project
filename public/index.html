@@ -45,8 +45,23 @@
         <button class="nav-btn buyer-only hidden" data-section="myOrders"><span>Mis Pedidos</span></button>
         <button class="nav-btn admin-only hidden" data-section="activeOrders"><span>Pedidos Activos</span></button>
         <button class="nav-btn admin-only hidden" data-section="attendedOrders"><span>Pedidos Atendidos</span></button>
+        <button class="nav-btn admin-only hidden" data-section="buyersSummary"><span>Clientes</span></button>
       </nav>
+      <div id="productSearchPanel" class="topbar-search">
+        <button id="productSearchToggle" class="search-toggle" type="button" aria-label="Abrir busqueda" aria-expanded="false">
+          <span aria-hidden="true">&#128269;</span>
+        </button>
+        <label class="search-box">
+          <span aria-hidden="true">&#128269;</span>
+          <input id="productSearchInput" type="search" placeholder="Buscar productos" autocomplete="off" />
+        </label>
+      </div>
       <div class="session">
+        <button id="themeToggleBtn" class="theme-toggle" type="button" aria-label="Activar modo oscuro" aria-pressed="false">
+          <span class="theme-toggle-track" aria-hidden="true">
+            <span class="theme-toggle-thumb"></span>
+          </span>
+        </button>
         <div class="user-menu">
           <span id="userBadge"></span>
           <button id="profileLinkBtn" class="profile-link" type="button">Mi Perfil</button>
@@ -121,6 +136,24 @@
               <button>Publicar</button>
             </form>
           </section>
+
+          <section class="admin-tool-card">
+            <button class="admin-tool-trigger" type="button" aria-expanded="false" data-admin-tool="categoryTool">
+              <span>
+                <strong>Categorias</strong>
+                <small>Organizar productos</small>
+              </span>
+              <span class="chevron">âŒ„</span>
+            </button>
+            <div class="admin-tool-body" aria-hidden="true">
+              <form id="categoryForm">
+                <input name="name" placeholder="Nombre de la categoria" required />
+                <textarea name="description" placeholder="Descripcion opcional" rows="2"></textarea>
+                <button>Guardar categoria</button>
+              </form>
+              <div id="categoryAdminList" class="category-admin-list"></div>
+            </div>
+          </section>
         </div>
         <div id="contentList" class="grid"></div>
       </section>
@@ -135,14 +168,24 @@
           <input name="id" type="hidden" />
           <input name="name" placeholder="Nombre del producto" required />
           <textarea name="description" placeholder="Descripcion" rows="3" required></textarea>
+          <textarea name="extraInfo" placeholder="Información extra, tutoriales de uso o detalles ampliados" rows="4"></textarea>
           <input name="price" type="number" step="0.01" min="0" placeholder="Precio" required />
           <input name="discountPercent" type="number" min="0" max="100" value="0" placeholder="Descuento %" />
+          <input name="stock" type="number" min="0" step="1" value="0" placeholder="Stock disponible" />
+          <select name="categoryId">
+            <option value="">Sin categoria</option>
+          </select>
           <input name="image" type="file" accept="image/*" />
           <div class="form-actions">
             <button id="productSubmitBtn">Guardar producto</button>
             <button id="productCancelBtn" class="secondary hidden" type="button">Cancelar edicion</button>
           </div>
         </form>
+        <div class="product-toolbar">
+          <select id="categoryFilterSelect" aria-label="Filtrar productos por categoria">
+            <option value="">Todas las categorias</option>
+          </select>
+        </div>
         <div id="productList" class="grid products-grid"></div>
       </section>
 
@@ -152,6 +195,19 @@
           <p>Revisa cantidades antes de hacer el pedido.</p>
         </div>
         <div id="cartList" class="panel"></div>
+        <div id="cashbackBox" class="panel cashback-box hidden">
+          <label class="cashback-toggle">
+            <input id="useCashbackInput" type="checkbox" />
+            <span>Usar cashback</span>
+          </label>
+          <div class="cashback-info">
+            <span>Disponible: <strong id="cashbackAvailable">$0</strong></span>
+            <span id="cashbackPreview" class="cashback-preview hidden">
+              <span id="cartOriginalTotal" class="price-old"></span>
+              <strong id="cartDiscountedTotal"></strong>
+            </span>
+          </div>
+        </div>
         <button id="orderBtn" class="primary">Hacer pedido</button>
       </section>
 
@@ -211,6 +267,42 @@
           <p>Historial de pedidos finalizados.</p>
         </div>
         <div id="attendedOrdersList" class="grid"></div>
+      </section>
+
+      <section id="buyersSummary" class="page admin-only hidden">
+        <div class="section-heading">
+          <h1>Clientes</h1>
+          <p>Resumen de clientes y puntaje por compras atendidas.</p>
+        </div>
+        <form id="pointsRateForm" class="panel points-rate-panel">
+          <label>
+            Pesos por punto
+            <input name="pesosPerPoint" type="number" min="1" step="1" value="1000" required />
+          </label>
+          <label>
+            Cashback por punto
+            <input name="cashbackPesos" type="number" min="0" step="1" value="1" required />
+          </label>
+          <button>Guardar criterio</button>
+        </form>
+        <div class="panel buyers-table-panel">
+          <div class="table-scroll">
+            <table class="buyers-table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Email</th>
+                  <th>Telefono</th>
+                  <th>Total comprado</th>
+                  <th>Base cashback</th>
+                  <th>Puntos</th>
+                  <th>Pesos de regalo</th>
+                </tr>
+              </thead>
+              <tbody id="buyersSummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
     </main>
     </div>

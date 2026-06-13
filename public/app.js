@@ -1,10 +1,17 @@
-const state = {
+﻿const state = {
   token: sessionStorage.getItem('token'),
   user: JSON.parse(sessionStorage.getItem('user') || 'null'),
   products: [],
+  categories: [],
   cart: JSON.parse(localStorage.getItem('cart') || '{}'),
   editingProductId: null,
   settings: {},
+  theme: localStorage.getItem('theme') || 'light',
+  productSearch: '',
+  selectedCategoryId: '',
+  expandedProductId: null,
+  cashback: { rewardPesos: 0, points: 0, totalPurchased: 0 },
+  useCashback: false,
   inactivityTimer: null,
   lastTokenRefreshAt: Number(sessionStorage.getItem('lastTokenRefreshAt') || Date.now()),
 };
@@ -14,6 +21,76 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 function money(value) {
   return Number(value).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+}
+
+function normalizeText(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  }[char]));
+}
+
+function isYoutubeUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return ['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com'].includes(parsed.hostname);
+  } catch (_error) {
+    return false;
+  }
+}
+
+function renderExtraInfo(value) {
+  const text = String(value || '').trim();
+  if (!text) return '<p>Todavía no hay información extra cargada para este producto.</p>';
+
+  const urlPattern = /(https?:\/\/[^\s]+)/g;
+  const html = escapeHtml(text).replace(urlPattern, (rawUrl) => {
+    const cleanUrl = rawUrl.replace(/[).,;!?]+$/, '');
+    const trailing = rawUrl.slice(cleanUrl.length);
+    const youtube = isYoutubeUrl(cleanUrl);
+    const label = youtube ? 'Video de YouTube' : cleanUrl;
+    const dataAttr = youtube ? ` data-youtube-url="${cleanUrl}"` : '';
+    return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer"${dataAttr}>${label}</a>${trailing}`;
+  });
+
+  return `<p>${html}</p>`;
+}
+
+async function hydrateYoutubeLinks() {
+  await Promise.all($$('[data-youtube-url]').map(async (link) => {
+    const url = link.dataset.youtubeUrl;
+    if (!url || link.dataset.loadedTitle === 'true') return;
+
+    try {
+      const response = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.title) {
+        link.textContent = data.title;
+        link.dataset.loadedTitle = 'true';
+      }
+    } catch (_error) {
+      link.textContent = 'Video de YouTube';
+    }
+  }));
+}
+
+function renderRatingStars(rating, options = {}) {
+  const rounded = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+  return [1, 2, 3, 4, 5].map((value) => {
+    const active = value <= rounded ? 'active' : '';
+    if (options.interactive) {
+      return `<button class="rating-star ${active}" data-rate-product="${options.productId}" data-rating="${value}" type="button" aria-label="Calificar ${value} estrellas">&#9733;</button>`;
+    }
+    return `<span class="rating-star ${active}" aria-hidden="true">&#9733;</span>`;
+  }).join('');
 }
 
 function toast(message) {
@@ -67,6 +144,7 @@ function saveSession(session) {
   refreshSessionUI();
   resetInactivityTimer();
   showSection('home');
+  loadCategories();
   loadProducts();
 }
 
@@ -81,6 +159,46 @@ function refreshSessionUI() {
   $('#userBadge').textContent = state.user ? `${state.user.firstName} (${state.user.role})` : '';
   $$('.admin-only').forEach((el) => el.classList.toggle('hidden', !isAdmin));
   $$('.buyer-only').forEach((el) => el.classList.toggle('hidden', !isBuyer));
+  renderCategoryAdminList();
+}
+
+function applyTheme() {
+  const isDark = state.theme === 'dark';
+  document.body.classList.toggle('dark-mode', isDark);
+  const themeToggle = $('#themeToggleBtn');
+  if (!themeToggle) return;
+  themeToggle.setAttribute('aria-pressed', String(isDark));
+  themeToggle.setAttribute('aria-label', isDark ? 'Activar modo claro' : 'Activar modo oscuro');
+  themeToggle.title = isDark ? 'Activar modo claro' : 'Activar modo oscuro';
+}
+
+function toggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('theme', state.theme);
+  applyTheme();
+}
+
+function toggleProductSearch() {
+  const panel = $('#productSearchPanel');
+  const input = $('#productSearchInput');
+  const button = $('#productSearchToggle');
+  const topbar = button.closest('.topbar');
+  const isOpening = !panel.classList.contains('open');
+
+  panel.classList.toggle('open', isOpening);
+  topbar?.classList.toggle('search-open', isOpening);
+  button.classList.toggle('active', isOpening);
+  button.setAttribute('aria-expanded', String(isOpening));
+  button.setAttribute('aria-label', isOpening ? 'Cerrar busqueda' : 'Abrir busqueda');
+
+  if (isOpening) {
+    input.focus();
+    return;
+  }
+
+  input.value = '';
+  state.productSearch = '';
+  renderProducts();
 }
 
 function fillProfileForm() {
@@ -102,7 +220,8 @@ function showSection(id) {
   if (id === 'activeOrders') loadOrders(true);
   if (id === 'attendedOrders') loadOrders(false);
   if (id === 'myOrders') loadMyOrders();
-  if (id === 'cart') renderCart();
+  if (id === 'buyersSummary') loadBuyersSummary();
+  if (id === 'cart') loadCashback().finally(renderCart);
 }
 
 function formDataToJson(form) {
@@ -129,7 +248,7 @@ async function loadContent() {
   const blocks = await api('/api/content-blocks');
   $('#contentList').innerHTML = blocks.map((block) => `
     <article class="card">
-      ${state.user?.role === 'superuser' ? `<button class="trash-btn" data-delete-content="${block.id}" type="button" aria-label="Eliminar globo informativo">🗑</button>` : ''}
+      ${state.user?.role === 'superuser' ? `<button class="trash-btn" data-delete-content="${block.id}" type="button" aria-label="Eliminar globo informativo">ðŸ—‘</button>` : ''}
       <h3>${block.title}</h3>
       <p>${block.body}</p>
       ${block.imageUrl ? `<img class="content-image" src="${block.imageUrl}" alt="${block.title}">` : ''}
@@ -148,32 +267,167 @@ async function loadContent() {
   }));
 }
 
+function categoryOptions(defaultLabel = 'Sin categoria') {
+  return `<option value="">${defaultLabel}</option>${state.categories.map((category) => (
+    `<option value="${category.id}">${category.name}</option>`
+  )).join('')}`;
+}
+
+function refreshCategoryControls() {
+  const productCategorySelect = $('#productForm')?.elements.categoryId;
+  const categoryFilterSelect = $('#categoryFilterSelect');
+  const currentProductCategory = productCategorySelect?.value || '';
+  const currentFilter = categoryFilterSelect?.value || state.selectedCategoryId;
+
+  if (productCategorySelect) {
+    productCategorySelect.innerHTML = categoryOptions('Sin categoria');
+    productCategorySelect.value = currentProductCategory;
+  }
+
+  if (categoryFilterSelect) {
+    categoryFilterSelect.innerHTML = categoryOptions('Todas las categorias');
+    categoryFilterSelect.value = currentFilter;
+  }
+}
+
+function renderCategoryAdminList() {
+  const target = $('#categoryAdminList');
+  if (!target) return;
+
+  target.innerHTML = state.categories.map((category) => `
+    <div class="category-admin-item">
+      <div>
+        <strong>${category.name}</strong>
+        ${category.description ? `<small>${category.description}</small>` : '<small>Sin descripcion</small>'}
+      </div>
+      ${state.user?.role === 'superuser' ? `<button class="danger-btn" data-delete-category="${category.id}" type="button">Quitar</button>` : ''}
+    </div>
+  `).join('') || '<p class="muted">Todavia no hay categorias cargadas.</p>';
+
+  $$('[data-delete-category]').forEach((btn) => btn.addEventListener('click', async () => {
+    if (!confirm('Quitar esta categoria? Los productos asociados quedaran sin categoria.')) return;
+    try {
+      await api(`/api/product-categories/${btn.dataset.deleteCategory}`, { method: 'DELETE' });
+      if (state.selectedCategoryId === btn.dataset.deleteCategory) state.selectedCategoryId = '';
+      await loadCategories();
+      await loadProducts();
+      toast('Categoria quitada');
+    } catch (error) {
+      toast(error.message);
+    }
+  }));
+}
+
+async function loadCategories() {
+  state.categories = await api('/api/product-categories');
+  if (state.selectedCategoryId && !state.categories.some((category) => category.id === state.selectedCategoryId)) {
+    state.selectedCategoryId = '';
+  }
+  refreshCategoryControls();
+  renderCategoryAdminList();
+}
+
 async function loadProducts() {
   state.products = await api('/api/products');
-  $('#productList').innerHTML = state.products.map((product) => {
+  cleanCartUnavailableProducts();
+  renderProducts();
+}
+
+function cleanCartUnavailableProducts(showMessage = false) {
+  const activeProductIds = new Set(state.products.map((product) => product.id));
+  const beforeCount = Object.keys(state.cart).length;
+
+  Object.keys(state.cart).forEach((productId) => {
+    if (!activeProductIds.has(productId)) delete state.cart[productId];
+  });
+
+  const removedCount = beforeCount - Object.keys(state.cart).length;
+  if (!removedCount) return false;
+
+  persistCart();
+  if (showMessage) {
+    toast(removedCount === 1
+      ? 'Se quito del carrito un producto que ya no esta disponible'
+      : 'Se quitaron del carrito productos que ya no estan disponibles');
+  }
+  return true;
+}
+
+function renderProducts() {
+  const search = normalizeText(state.productSearch);
+  const filteredProducts = state.products.filter((product) => {
+    const categoryId = product.category?.id || product.categoryId || '';
+    const matchesCategory = !state.selectedCategoryId || categoryId === state.selectedCategoryId;
+    const matchesSearch = !search || [
+      product.name,
+      product.description,
+      product.category?.name,
+    ].some((value) => normalizeText(value).includes(search));
+    return matchesCategory && matchesSearch;
+  });
+
+  $('#productList').innerHTML = filteredProducts.map((product) => {
     const hasDiscount = product.discountPercent > 0;
+    const categoryName = product.category?.name || 'Sin categoria';
+    const isOpen = state.expandedProductId === product.id;
+    const ratingLabel = product.ratingCount
+      ? `${product.ratingAverageExact} (${product.ratingCount})`
+      : 'Sin calificaciones';
     return `
-      <article class="card">
-        ${state.user?.role === 'superuser' ? `<button class="trash-btn" data-delete-product="${product.id}" type="button" aria-label="Eliminar producto">🗑</button>` : ''}
+      <article class="card product-card ${isOpen ? 'open' : ''}" data-product-card="${product.id}">
+        ${state.user?.role === 'superuser' ? `<button class="trash-btn" data-delete-product="${product.id}" type="button" aria-label="Eliminar producto">ðŸ—‘</button>` : ''}
         ${product.imageUrl ? `<img src="${product.imageUrl}" alt="${product.name}">` : '<div class="image-placeholder"></div>'}
+        <span class="category-chip">${categoryName}</span>
         <h3>${product.name}</h3>
         <p>${product.description}</p>
+        <div class="rating-summary" title="${ratingLabel}">
+          <span class="rating-stars">${renderRatingStars(product.ratingAverage)}</span>
+          <small>${ratingLabel}</small>
+        </div>
+        <span class="stock-chip ${product.stock <= 0 ? 'out-of-stock' : ''}">
+          ${product.stock > 0 ? `Stock: ${product.stock}` : 'Sin stock'}
+        </span>
         ${hasDiscount ? `<span class="discount">${product.discountPercent}% OFF</span>` : ''}
         <div>
           ${hasDiscount ? `<div class="price-old">${money(product.price)}</div>` : ''}
           <div class="price-new">${money(product.finalPrice)}</div>
         </div>
-        <button data-add="${product.id}">Agregar al carrito</button>
-        ${state.user?.role === 'superuser' ? `
-          <div class="admin-actions">
-            <button class="secondary" data-edit-product="${product.id}" type="button">Editar</button>
+        <div class="product-detail">
+          <h4>Información ampliada</h4>
+          <div class="extra-info-content">${renderExtraInfo(product.extraInfo)}</div>
+          <div class="rating-detail">
+            <strong>Calificación del producto</strong>
+            <div class="rating-summary large">
+              <span class="rating-stars">${renderRatingStars(product.ratingAverage)}</span>
+              <small>${ratingLabel}</small>
+            </div>
+            ${state.user?.role === 'buyer' ? `
+              <div class="rating-picker">
+                <span>Tu puntuación</span>
+                <div>${renderRatingStars(product.myRating, { interactive: true, productId: product.id })}</div>
+              </div>
+            ` : ''}
           </div>
-        ` : ''}
-      </article>
+        </div>
+        <div class="product-actions">
+          ${state.user?.role === 'superuser' ? `
+            <div class="admin-actions">
+              <button class="secondary" data-edit-product="${product.id}" type="button">Editar</button>
+            </div>
+          ` : ''}
+          <button class="add-cart-btn" data-add="${product.id}" ${product.stock <= 0 ? 'disabled' : ''}>Agregar al carrito</button>
+        </div>
+              </article>
     `;
-  }).join('') || '<div class="panel">Todavia no hay productos cargados.</div>';
+  }).join('') || '<div class="panel">No hay productos para mostrar con esos filtros.</div>';
 
+  $$('[data-product-card]').forEach((card) => card.addEventListener('click', (event) => {
+    if (event.target.closest('button, input, select, textarea, a, label')) return;
+    state.expandedProductId = state.expandedProductId === card.dataset.productCard ? null : card.dataset.productCard;
+    renderProducts();
+  }));
   $$('[data-add]').forEach((btn) => btn.addEventListener('click', () => addToCart(btn.dataset.add)));
+  $$('[data-rate-product]').forEach((btn) => btn.addEventListener('click', async () => rateProduct(btn.dataset.rateProduct, Number(btn.dataset.rating))));
   $$('[data-edit-product]').forEach((btn) => btn.addEventListener('click', () => startProductEdit(btn.dataset.editProduct)));
   $$('[data-delete-product]').forEach((btn) => btn.addEventListener('click', async () => {
     if (!confirm('Eliminar este producto?')) return;
@@ -185,6 +439,7 @@ async function loadProducts() {
       toast(error.message);
     }
   }));
+  hydrateYoutubeLinks();
 }
 
 function resetProductForm() {
@@ -192,6 +447,9 @@ function resetProductForm() {
   form.reset();
   form.elements.id.value = '';
   form.elements.discountPercent.value = 0;
+  form.elements.extraInfo.value = '';
+  form.elements.stock.value = 0;
+  form.elements.categoryId.value = '';
   state.editingProductId = null;
   $('#productFormTitle').textContent = 'Cargar producto';
   $('#productSubmitBtn').textContent = 'Guardar producto';
@@ -207,8 +465,11 @@ function startProductEdit(productId) {
   form.elements.id.value = product.id;
   form.elements.name.value = product.name;
   form.elements.description.value = product.description;
+  form.elements.extraInfo.value = product.extraInfo || '';
   form.elements.price.value = Number(product.price);
   form.elements.discountPercent.value = product.discountPercent ?? 0;
+  form.elements.stock.value = product.stock ?? 0;
+  form.elements.categoryId.value = product.category?.id || product.categoryId || '';
   form.elements.image.value = '';
 
   $('#productFormTitle').textContent = `Editar producto: ${product.name}`;
@@ -223,6 +484,17 @@ function addToCart(productId) {
   toast('Producto agregado al carrito');
 }
 
+async function rateProduct(productId, rating) {
+  try {
+    await api(`/api/products/${productId}/rating`, { method: 'POST', body: JSON.stringify({ rating }) });
+    state.expandedProductId = productId;
+    await loadProducts();
+    toast('Calificación guardada');
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
 function persistCart() {
   localStorage.setItem('cart', JSON.stringify(state.cart));
   const count = Object.values(state.cart).reduce((sum, qty) => sum + qty, 0);
@@ -231,15 +503,31 @@ function persistCart() {
   $('#cartIconFull').classList.toggle('hidden', count === 0);
 }
 
+async function loadCashback() {
+  if (state.user?.role !== 'buyer') {
+    state.cashback = { rewardPesos: 0, points: 0, totalPurchased: 0 };
+    state.useCashback = false;
+    return;
+  }
+
+  state.cashback = await api('/api/orders/my-cashback');
+}
+
 function renderCart() {
+  cleanCartUnavailableProducts(true);
   const items = Object.entries(state.cart)
     .map(([id, quantity]) => ({ product: state.products.find((item) => item.id === id), quantity }))
-    .filter((item) => item.product);
 
   if (!items.length) {
     $('#cartList').innerHTML = 'El carrito esta vacio.';
+    $('#cashbackBox').classList.add('hidden');
     return;
   }
+
+  const originalTotal = items.reduce((sum, { product, quantity }) => sum + Number(product.finalPrice) * quantity, 0);
+  const cashbackAvailable = Math.min(Number(state.cashback.rewardPesos || 0), originalTotal);
+  if (!cashbackAvailable) state.useCashback = false;
+  const discountedTotal = Math.max(0, originalTotal - (state.useCashback ? cashbackAvailable : 0));
 
   $('#cartList').innerHTML = items.map(({ product, quantity }) => `
     <div class="cart-row">
@@ -251,6 +539,14 @@ function renderCart() {
       <button data-remove="${product.id}">Quitar</button>
     </div>
   `).join('');
+
+  $('#cashbackBox').classList.toggle('hidden', state.user?.role !== 'buyer');
+  $('#cashbackAvailable').textContent = money(state.cashback.rewardPesos || 0);
+  $('#useCashbackInput').checked = state.useCashback;
+  $('#useCashbackInput').disabled = !cashbackAvailable;
+  $('#cashbackPreview').classList.toggle('hidden', !state.useCashback || !cashbackAvailable);
+  $('#cartOriginalTotal').textContent = money(originalTotal);
+  $('#cartDiscountedTotal').textContent = money(discountedTotal);
 
   $$('[data-qty]').forEach((input) => input.addEventListener('change', () => {
     state.cart[input.dataset.qty] = Math.max(1, Number(input.value));
@@ -276,6 +572,10 @@ async function loadOrders(active) {
       <ul>
         ${order.items.map((item) => `<li>${item.quantity} x ${item.name} - ${money(item.subtotal)}</li>`).join('')}
       </ul>
+      ${Number(order.cashbackDiscount || 0) > 0 ? `
+        <p>Cashback aplicado: <strong>-${money(order.cashbackDiscount)}</strong></p>
+        <p>Total original: <span class="price-old">${money(order.originalTotal || order.total)}</span></p>
+      ` : ''}
       <p><strong>Total: ${money(order.total)}</strong></p>
       <button data-order-action="${active ? 'attend' : 'reactivate'}" data-order-id="${order.id}">
         ${active ? 'Atendido' : 'Volver a activos'}
@@ -285,8 +585,15 @@ async function loadOrders(active) {
   `).join('') || '<div class="panel">No hay pedidos para mostrar.</div>';
 
   $$('[data-order-action]').forEach((btn) => btn.addEventListener('click', async () => {
-    await api(`/api/orders/${btn.dataset.orderId}/${btn.dataset.orderAction}`, { method: 'PATCH' });
+    const isReactivate = btn.dataset.orderAction === 'reactivate';
+    const options = { method: 'PATCH' };
+    if (isReactivate) {
+      const restoreStock = confirm('Este pedido ya habia descontado stock. Queres devolver al stock las unidades de este pedido?');
+      options.body = JSON.stringify({ restoreStock });
+    }
+    await api(`/api/orders/${btn.dataset.orderId}/${btn.dataset.orderAction}`, options);
     await loadOrders(active);
+    await loadProducts();
   }));
 
   $$('[data-close-order]').forEach((btn) => btn.addEventListener('click', async () => {
@@ -316,9 +623,38 @@ async function loadMyOrders() {
       <ul>
         ${order.items.map((item) => `<li>${item.quantity} x ${item.name} - ${money(item.subtotal)}</li>`).join('')}
       </ul>
+      ${Number(order.cashbackDiscount || 0) > 0 ? `
+        <p>Cashback aplicado: <strong>-${money(order.cashbackDiscount)}</strong></p>
+        <p>Total original: <span class="price-old">${money(order.originalTotal || order.total)}</span></p>
+      ` : ''}
       <p><strong>Total: ${money(order.total)}</strong></p>
     </article>
   `).join('') || '<div class="panel">Todavia no hiciste pedidos.</div>';
+}
+
+async function loadBuyersSummary() {
+  const summary = await api('/api/orders/buyers-summary');
+  const form = $('#pointsRateForm');
+  if (form) {
+    form.elements.pesosPerPoint.value = summary.pesosPerPoint;
+    form.elements.cashbackPesos.value = summary.cashbackPesos;
+  }
+
+  $('#buyersSummaryBody').innerHTML = summary.buyers.map((buyer) => `
+    <tr>
+      <td><strong>${buyer.firstName} ${buyer.lastName}</strong></td>
+      <td>${buyer.email}</td>
+      <td>${buyer.phone || 'Sin telefono'}</td>
+      <td>${money(buyer.totalPurchased)}</td>
+      <td>${money(buyer.rewardBasePurchased)}</td>
+      <td><strong>${buyer.points}</strong></td>
+      <td>${money(buyer.rewardPesos)}</td>
+    </tr>
+  `).join('') || `
+    <tr>
+      <td colspan="7">No hay clientes registrados.</td>
+    </tr>
+  `;
 }
 
 function bindForms() {
@@ -361,6 +697,11 @@ function bindForms() {
 
   $('#cartNavBtn').addEventListener('click', () => showSection('cart'));
   $('#profileLinkBtn').addEventListener('click', () => showSection('profile'));
+  $('#themeToggleBtn').addEventListener('click', toggleTheme);
+  $('#useCashbackInput').addEventListener('change', (event) => {
+    state.useCashback = event.target.checked;
+    renderCart();
+  });
 
   $$('.admin-tool-trigger').forEach((trigger) => {
     trigger.addEventListener('click', () => {
@@ -404,6 +745,42 @@ function bindForms() {
   });
 
   $('#productCancelBtn').addEventListener('click', resetProductForm);
+
+  $('#categoryForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await api('/api/product-categories', { method: 'POST', body: JSON.stringify(formDataToJson(event.target)) });
+      event.target.reset();
+      await loadCategories();
+      toast('Categoria creada');
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+
+  $('#pointsRateForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await api('/api/settings/points-rate', { method: 'PATCH', body: JSON.stringify(formDataToJson(event.target)) });
+      await loadBuyersSummary();
+      toast('Criterio de puntos actualizado');
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+
+  $('#productSearchInput').addEventListener('input', (event) => {
+    state.productSearch = event.target.value;
+    if (state.productSearch.trim()) showSection('products');
+    renderProducts();
+  });
+
+  $('#productSearchToggle').addEventListener('click', toggleProductSearch);
+
+  $('#categoryFilterSelect').addEventListener('change', (event) => {
+    state.selectedCategoryId = event.target.value;
+    renderProducts();
+  });
 
   $('#contentForm').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -469,10 +846,15 @@ function bindForms() {
   $('#orderBtn').addEventListener('click', async () => {
     try {
       if (!state.user) return toast('Necesitas iniciar sesion para hacer un pedido');
+      await loadProducts();
+      await loadCashback();
+      cleanCartUnavailableProducts(true);
       const items = Object.entries(state.cart).map(([productId, quantity]) => ({ productId, quantity }));
       if (!items.length) return toast('El carrito esta vacio');
-      await api('/api/orders', { method: 'POST', body: JSON.stringify({ items }) });
+      await api('/api/orders', { method: 'POST', body: JSON.stringify({ items, useCashback: state.useCashback }) });
       state.cart = {};
+      state.useCashback = false;
+      await loadCashback();
       persistCart();
       renderCart();
       toast('Pedido generado');
@@ -501,10 +883,12 @@ async function refreshTokenIfNeeded() {
 }
 
 async function init() {
+  applyTheme();
   bindForms();
   persistCart();
   try {
-    await Promise.all([loadSettings(), loadContent(), loadProducts()]);
+    await Promise.all([loadSettings(), loadContent(), loadCategories()]);
+    await loadProducts();
     if (state.token && state.user) {
       const freshSession = await api('/api/auth/refresh', { method: 'POST' });
       saveSession(freshSession);

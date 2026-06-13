@@ -25,8 +25,20 @@ export class OrderEntity {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   total: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  originalTotal: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  cashbackDiscount: number;
+
+  @Column({ default: false })
+  cashbackUsed: boolean;
+
   @Column({ default: true })
   isActive: boolean;
+
+  @Column({ default: false })
+  stockApplied: boolean;
 
   @CreateDateColumn()
   createdAt: Date;
