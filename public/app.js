@@ -248,7 +248,7 @@ async function loadContent() {
   const blocks = await api('/api/content-blocks');
   $('#contentList').innerHTML = blocks.map((block) => `
     <article class="card">
-      ${state.user?.role === 'superuser' ? `<button class="trash-btn" data-delete-content="${block.id}" type="button" aria-label="Eliminar globo informativo">ðŸ—‘</button>` : ''}
+      ${state.user?.role === 'superuser' ? `<button class="trash-btn" data-delete-content="${block.id}" type="button" aria-label="Eliminar globo informativo">&#128465;</button>` : ''}
       <h3>${block.title}</h3>
       <p>${block.body}</p>
       ${block.imageUrl ? `<img class="content-image" src="${block.imageUrl}" alt="${block.title}">` : ''}
@@ -375,7 +375,7 @@ function renderProducts() {
       : 'Sin calificaciones';
     return `
       <article class="card product-card ${isOpen ? 'open' : ''}" data-product-card="${product.id}">
-        ${state.user?.role === 'superuser' ? `<button class="trash-btn" data-delete-product="${product.id}" type="button" aria-label="Eliminar producto">ðŸ—‘</button>` : ''}
+        ${state.user?.role === 'superuser' ? `<button class="trash-btn" data-delete-product="${product.id}" type="button" aria-label="Eliminar producto">&#128465;</button>` : ''}
         ${product.imageUrl ? `<img src="${product.imageUrl}" alt="${product.name}">` : '<div class="image-placeholder"></div>'}
         <span class="category-chip">${categoryName}</span>
         <h3>${product.name}</h3>
